@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#FF8C42">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>汉字听写乐园</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{
+  --primary:#FF8C42;--primary-dark:#E87820;--success:#4ECDC4;--error:#FF6B6B;
+  --bg:#FFF9F0;--card:#FFFFFF;--text:#333;--muted:#999;--grid:#E8F5E9;
+  --shadow:rgba(255,140,66,.15);--radius:16px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--text);overflow-x:hidden}
+body{display:flex;flex-direction:column}
+header{background:var(--primary);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px var(--shadow);position:sticky;top:0;z-index:100}
+header h1{font-size:1.2rem;font-weight:700;letter-spacing:1px}
+.header-right{display:flex;gap:8px}
+.header-right button{background:rgba(255,255,255,.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.header-right button:active{background:rgba(255,255,255,.4)}
+.tab-bar{display:flex;background:#fff;border-bottom:2px solid #f0f0f0;position:sticky;top:56px;z-index:99;flex-shrink:0}
+.tab-bar button{flex:1;padding:12px 0;border:none;background:none;font-size:.85rem;color:var(--muted);cursor:pointer;position:relative;font-weight:600;transition:color .2s}
+.tab-bar button.active{color:var(--primary)}
+.tab-bar button.active::after{content:'';position:absolute;bottom:-2px;left:20%;right:20%;height:3px;background:var(--primary);border-radius:2px}
+.tab-bar button i{margin-right:4px}
+.main{flex:1;overflow-y:auto;padding:16px;max-width:500px;margin:0 auto;width:100%}
+.page{display:none}.page.active{display:block}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 2px 12px var(--shadow);transition:transform .15s}
+.card:active{transform:scale(.98)}
+.btn{padding:12px 24px;border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:active{background:var(--primary-dark);transform:scale(.97)}
+.btn-success{background:var(--success);color:#fff}.btn-success:active{background:#3dbdb5;transform:scale(.97)}
+.btn-error{background:var(--error);color:#fff}.btn-error:active{background:#e55555;transform:scale(.97)}
+.btn-outline{background:transparent;border:2px solid var(--primary);color:var(--primary)}.btn-outline:active{background:rgba(255,140,66,.1)}
+.btn-sm{padding:8px 16px;font-size:.85rem;border-radius:12px}
+.btn-lg{width:100%;padding:16px;font-size:1.1rem}
+.lesson-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.lesson-card{background:var(--card);border-radius:var(--radius);padding:16px 12px;text-align:center;cursor:pointer;box-shadow:0 2px 12px var(--shadow);transition:all .15s;border:2px solid transparent}
+.lesson-card:active{transform:scale(.96)}
+.lesson-card .lesson-name{font-weight:700;font-size:.95rem;color:var(--primary);margin-bottom:4px}
+.lesson-card .lesson-count{font-size:.8rem;color:var(--muted)}
+.lesson-card.parent-card{border-color:#FFD54F;background:#FFFDE7}
+.lesson-card.parent-card .lesson-name{color:#F57F17}
+.lesson-card.all-card{border-color:#CE93D8;background:#F3E5F5}
+.lesson-card.all-card .lesson-name{color:#7B1FA2}
+.word-list{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0}
+.word-tag{background:var(--grid);padding:6px 14px;border-radius:20px;font-size:.9rem;color:var(--text)}
+.word-tag.done{background:var(--success);color:#fff;opacity:.7}
+.word-tag.wrong{background:#FFEBEE;color:var(--error);border:1px dashed var(--error)}
+#writing-area{background:var(--card);border-radius:var(--radius);padding:20px;text-align:center;box-shadow:0 2px 12px var(--shadow);margin-bottom:16px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#hanzi-container{width:280px;height:280px;margin:0 auto}
+#hanzi-container svg{width:100%;height:100%}
+.sound-btn{width:80px;height:80px;border-radius:50%;background:var(--primary);color:#fff;font-size:1.8rem;border:none;cursor:pointer;box-shadow:0 4px 16px var(--shadow);transition:all .15s;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.sound-btn:active{transform:scale(.9);background:var(--primary-dark)}
+.sound-btn:disabled{opacity:.5;cursor:not-allowed}
+.word-display{font-size:2rem;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:4px}
+.pinyin-hint{font-size:.9rem;color:var(--muted);margin-bottom:16px}
+.feedback-msg{font-size:1.1rem;font-weight:600;padding:10px 20px;border-radius:var(--radius);margin:8px 0;animation:fadeIn .3s}
+.feedback-msg.correct{background:#E8F5E9;color:#2E7D32}
+.feedback-msg.wrong{background:#FFEBEE;color:#C62828}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.bounce{animation:bounce .4s ease}
+.shake{animation:shake .4s ease}
+.progress-bar{width:100%;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-bar .fill{height:100%;background:var(--primary);border-radius:4px;transition:width .4s ease}
+.stats-row{display:flex;justify-content:space-around;text-align:center;padding:12px 0}
+.stat-num{font-size:1.8rem;font-weight:700;color:var(--primary)}
+.stat-label{font-size:.8rem;color:var(--muted);margin-top:2px}
+.accuracy-high{color:var(--success);font-weight:700}
+.accuracy-low{color:var(--error);font-weight:700}
+textarea{width:100%;min-height:120px;padding:12px;border:2px solid #e0e0e0;border-radius:var(--radius);font-size:.95rem;font-family:var(--font);resize:vertical;outline:none;transition:border-color .2s}
+textarea:focus{border-color:var(--primary)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s}
+.modal{background:#fff;border-radius:var(--radius);padding:24px;max-width:400px;width:100%;animation:bounce .3s}
+.modal h3{margin-bottom:16px;color:var(--primary)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 24px;border-radius:24px;font-size:.9rem;z-index:2000;animation:fadeIn .3s;white-space:nowrap}
+.chart-container{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 2px 12px var(--shadow)}
+.chart-title{font-weight:700;margin-bottom:12px;color:var(--text)}
+.chart-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.chart-bar-label{width:40px;font-size:.8rem;color:var(--muted);text-align:right}
+.chart-bar-track{flex:1;height:24px;background:#f5f5f5;border-radius:12px;overflow:hidden;position:relative}
+.chart-bar-fill{height:100%;border-radius:12px;transition:width .6s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:.75rem;color:#fff;font-weight:600}
+.record-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #f0f0f0}
+.record-item:last-child{border-bottom:none}
+.record-date{font-size:.85rem;color:var(--muted)}
+.record-info{font-size:.9rem}
+.record-accuracy{font-weight:700;font-size:1rem}
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-state i{font-size:3rem;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:.95rem;margin-top:8px}
+.mastered-badge{background:linear-gradient(135deg,#FFD54F,#FFB300);color:#333;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;display:inline-block;margin-left:4px}
+@media(max-width:360px){
+  #hanzi-container{width:240px;height:240px}
+  .word-display{font-size:1.6rem}
+  .lesson-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><i class="fas fa-graduation-cap"></i> 汉字听写乐园</h1>
+  <div class="header-right">
+    <button onclick="showAddWordsModal()" title="添加词语"><i class="fas fa-plus"></i></button>
+  </div>
+</header>
+<div class="tab-bar">
+  <button class="active" data-tab="listen" onclick="switchTab('listen')"><i class="fas fa-book-open"></i> 听写</button>
+  <button data-tab="wrongbank" onclick="switchTab('wrongbank')"><i class="fas fa-exclamation-triangle"></i> 错词本<span id="wrong-count" style="background:#FF6B6B;color:#fff;border-radius:8px;padding:1px 6px;font-size:.7rem;margin-left:4px;display:none">0</span></button>
+  <button data-tab="custom" onclick="switchTab('custom')"><i class="fas fa-edit"></i> 自定义</button>
+  <button data-tab="records" onclick="switchTab('records')"><i class="fas fa-chart-line"></i> 成绩</button>
+</div>
+<div class="main">
+<!-- ===== 听写页面 ===== -->
+<div id="page-listen" class="page active">
+  <div id="lesson-selection">
+    <div class="lesson-grid" id="lesson-grid"></div>
+  </div>
+  <div id="practice-area" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <button class="btn btn-outline btn-sm" onclick="backToLessons()"><i class="fas fa-arrow-left"></i> 返回</button>
+      <div style="text-align:center">
+        <div id="current-lesson-name" style="font-weight:700;color:var(--primary)"></div>
+        <div id="word-progress" style="font-size:.85rem;color:var(--muted)"></div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="toggleMode()"><i class="fas fa-sync-alt"></i> <span id="mode-label">全书随机</span></button>
+    </div>
+    <div class="progress-bar"><div class="fill" id="progress-fill" style="width:0%"></div></div>
+    <div id="writing-area">
+      <div class="word-display" id="target-word"></div>
+      <div class="pinyin-hint" id="pinyin-hint"></div>
+      <button class="sound-btn" id="sound-btn" onclick="speakCurrentWord()"><i class="fas fa-volume-up"></i></button>
+      <div id="hanzi-container"></div>
+      <div id="feedback-area" style="margin-top:12px;min-height:40px"></div>
+      <button class="btn btn-primary btn-lg" id="next-btn" onclick="nextWord()" style="margin-top:16px;display:none">下一词 <i class="fas fa-arrow-right"></i></button>
+    </div>
+  </div>
+</div>
+<!-- ===== 错词本页面 ===== -->
+<div id="page-wrongbank" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="color:var(--primary)"><i class="fas fa-exclamation-triangle"></i> 错词本</h2>
+    <button class="btn btn-sm btn-outline" onclick="clearWrongBank()"><i class="fas fa-trash"></i> 清空</button>
+  </div>
+  <div id="wrongbank-content"></div>
+</div>
+<!-- ===== 自定义词语页面 ===== -->
+<div id="page-custom" class="page">
+  <h2 style="color:var(--primary);margin-bottom:16px"><i class="fas fa-edit"></i> 家长自定义词语</h2>
+  <div class="card">
+    <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.9rem">词语组名</label><input type="text" id="custom-group-name" placeholder="例如：老师补充、复习资料" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:var(--radius);font-size:.95rem;margin-top:6px;outline:none"></div>
+    <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.9rem">输入词语（每行一个，或顿号分隔）</label><textarea id="custom-words-input" placeholder="山坡&#10;学校&#10;飘扬"></textarea></div>
+    <button class="btn btn-primary" onclick="saveCustomWords()"><i class="fas fa-save"></i> 保存</button>
+  </div>
+  <div id="custom-list"></div>
+</div>
+<!-- ===== 成绩页面 ===== -->
+<div id="page-records" class="page">
+  <h2 style="color:var(--primary);margin-bottom:16px"><i class="fas fa-chart-line"></i> 听写成绩</h2>
+  <div class="chart-container" id="chart-container">
+    <div class="chart-title"><i class="fas fa-chart-bar"></i> 近8周正确率趋势</div>
+    <div id="chart-bars"></div>
+  </div>
+  <div class="stats-row" id="stats-row"></div>
+  <div class="card" style="margin-top:12px">
+    <div class="chart-title"><i class="fas fa-history"></i> 听写记录</div>
+    <div id="records-list"></div>
+  </div>
+</div>
+</div>
+<!-- ===== 添加词语弹窗 ===== -->
+<div id="add-words-modal" style="display:none"></div>
+<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+<script>
+// ============================================================
+// 数据定义
+// ============================================================
+const LESSONS = {
+  '第1课': ['山坡','学校','飘扬','课文','声音','招引','热闹','古老','粗壮','枝干','洁白'],
+  '第2课': ['轰响','阵雨','湿润','风笛','狂欢','觉得','功课','放学','老师','急急忙忙'],
+  '第5课': ['秋风','放晴','明朗','地面','亮晶晶','落叶','图案','闪闪发光','尽头','排列','规则','凌乱','歌唱','迟到'],
+  '第6课': ['秋天','清凉','炎热','枫树','邮票','凉爽','果树','菊花','仙子','频频','气味','香甜','松果','丰收'],
+  '第8课': ['门板','准备','旁边','暴风雨','安心','低头','吃力','再见','母鸡','注意','屋子','漂亮','意思','因此'],
+  '语文园地1': ['恒心','神圣','萌发','妥当','车轴','阁楼','培植','厘米'],
+  '第11课': ['葫芦','声明','神仙','普通','让步','条件','指甲','得到','衣服','所以','要是','可怜','最好','科学'],
+  '第12课': ['旅行','要好','答应','做梦','来得及','救命'],
+  '第13课': ['大吃一惊','尾巴','牙齿','肚皮','食物','消化','当然','刚才','知觉','光亮'],
+  '语文园地2': ['申请','介绍','主旨','占领','乏力'],
+  '第14课': ['母亲','外祖父','船夫','羽毛','翠绿','静悄悄','翠鸟','捕鱼'],
+  '第15课': ['草地','蒲公英','盛开','玩耍','一本正经','使劲','钓鱼','观察','合拢','张开','喜爱'],
+  '第16课': ['风景','优美','物产','交错','岩石','鹿角','成群结队','布满','条纹','周身','皮球','茂密','肥料','祖国','事业','发展'],
+  '第17课': ['海滨','街道','交界','水平线','机帆船','来来往往','朝阳','渔民','贝壳','理睬','汽笛','出海','银光闪闪','庭院','散发','打扫','干净'],
+  '第18课': ['东北','密密层层','严严实实','视线','山谷','起来','照射','各种各样','花坛','显得','苍翠','药材','捕捉','野兔','景色','宝库'],
+  '语文园地3': ['田螺','螃蟹','鲤鱼','鲫鱼','鲨鱼'],
+  '第21课': ['大自然','美妙','音乐家','手风琴','歌手','感受','温柔','合奏','充满','威力','乐器','屋顶','河流','轻快','合唱','水塘'],
+  '第22课': ['昆虫','万物','沉思','搬家','井然有序','精神','植物','千姿百态','鲜美','池塘','秋高气爽','倒映','游玩','画册','无穷','奥秘','无尽'],
+  '第24课': ['生物','从事','成就','学期','考试','平均','再三','同意','难得','值班','努力','满分','国家','地位','环节','难度','刻苦','兴奋'],
+  '第25课': ['手术台','阵地','战斗','打响','当头一棒','伤员','陆续','血丝','匆匆','医生','转告','赶忙','迅速','争分夺秒','连续'],
+  '语文园地4': ['怒目圆睁','眨眼','眼眶','目瞪口呆','耳闻目睹']
+};
+
+const PINYIN_MAP = {};
+
+// ============================================================
+// 状态管理
+// ============================================================
+let state = loadState();
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('dictation_state'));
+    if (s) return s;
+  } catch(e) {}
+  return {
+    currentTab: 'listen',
+    mode: 'lesson', // 'lesson' | 'all'
+    currentLesson: null,
+    currentWordIndex: 0,
+    wordQueue: [],
+    currentWord: null,
+    wrongBank: {},   // { word: { wrongCount, correctStreak, lastWrongDate } }
+    customWords: {}, // { groupName: [words] }
+    records: [],     // [{ date, lesson, totalWords, correct, wrong, accuracy, wrongWords }]
+    masteredWords: new Set(),
+    quizSession: {}  // { word: { correctCount, totalCount } }
+  };
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('dictation_state', JSON.stringify(state));
+  } catch(e) {}
+}
+
+function getWrongBankList() {
+  return Object.entries(state.wrongBank)
+    .filter(([w, d]) => !state.masteredWords.has(w))
+    .sort((a, b) => b[1].wrongCount - a[1].wrongCount);
+}
+
+function getQuizSessionStatus(word) {
+  return state.quizSession[word] || { correctCount: 0, totalCount: 0 };
+}
+
+function isMastered(word) {
+  return state.masteredWords.has(word);
+}
+
+function getPriorityQueue() {
+  const wrong = getWrongBankList().map(([w]) => w);
+  const allWords = Object.values(LESSONS).flat();
+  const customAll = Object.values(state.customWords).flat();
+  const allUnique = [...new Set([...allWords, ...customAll])];
+  return { wrong, allWords: allUnique };
+}
+
+function buildWordQueue(lesson, count) {
+  const lessonWords = [...(LESSONS[lesson] || [])];
+  const customForLesson = state.customWords[lesson] || [];
+  const allWords = [...new Set([...lessonWords, ...customForLesson])];
+  // Fisher-Yates shuffle
+  for (let i = allWords.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+  }
+  return allWords.slice(0, count || allWords.length);
+}
+
+function buildAllWordsQueue() {
+  let allWords = Object.values(LESSONS).flat();
+  Object.values(state.customWords).forEach(ws => { allWords = [...allWords, ...ws]; });
+  allWords = [...new Set(allWords)];
+  for (let i = allWords.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+  }
+  return allWords;
+}
+
+// ============================================================
+// 持久化
+// ============================================================
+function saveWrongBank() { saveState(); updateWrongCount(); }
+function saveRecords() { saveState(); renderRecords(); }
+
+// ============================================================
+// UI 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  renderLessons();
+  updateWrongCount();
+  if (state.currentTab) switchTab(state.currentTab, true);
+});
+
+// ============================================================
+// Tab 切换
+// ============================================================
+function switchTab(tab, silent) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageMap = { listen: 'page-listen', wrongbank: 'page-wrongbank', custom: 'page-custom', records: 'page-records' };
+  document.getElementById(pageMap[tab]).classList.add('active');
+  if (tab === 'listen') { renderLessons(); }
+  else if (tab === 'wrongbank') renderWrongBank();
+  else if (tab === 'custom') renderCustomList();
+  else if (tab === 'records') { renderChart(); renderStats(); renderRecords(); }
+  if (!silent) saveState();
+}
+
+// ============================================================
+// 课次渲染
+// ============================================================
+function renderLessons() {
+  const grid = document.getElementById('lesson-grid');
+  let html = '';
+  // 全书随机
+  html += `<div class="lesson-card all-card" onclick="startAllMode()"><div class="lesson-name"><i class="fas fa-random"></i> 全书随机</div><div class="lesson-count">250词综合听写</div></div>`;
+  Object.entries(LESSONS).forEach(([lesson, words]) => {
+    const customCount = (state.customWords[lesson] || []).length;
+    html += `<div class="lesson-card" onclick="startLesson('${lesson}')"><div class="lesson-name">${lesson}</div><div class="lesson-count">${words.length}词${customCount ? ' +' + customCount : ''}</div></div>`;
+  });
+  // 自定义课次
+  Object.entries(state.customWords).forEach(([group, words]) => {
+    if (!LESSONS[group]) {
+      html += `<div class="lesson-card parent-card" onclick="startLesson('${group}')"><div class="lesson-name"><i class="fas fa-star"></i> ${group}</div><div class="lesson-count">${words.length}词</div></div>`;
+    }
+  });
+  grid.innerHTML = html;
+}
+
+// ============================================================
+// 开始听写
+// ============================================================
+function startLesson(lesson) {
+  state.mode = 'lesson';
+  state.currentLesson = lesson;
+  state.wordQueue = buildWordQueue(lesson);
+  state.currentWordIndex = 0;
+  state.quizSession = {};
+  state.masteredWords = new Set();
+  // Filter out mastered words from queue
+  state.wordQueue = state.wordQueue.filter(w => !isMastered(w));
+  if (state.wordQueue.length === 0) {
+    state.wordQueue = buildWordQueue(lesson);
+  }
+  showPracticeArea(lesson);
+}
+
+function startAllMode() {
+  state.mode = 'all';
+  state.currentLesson = '全书随机';
+  state.wordQueue = buildAllWordsQueue();
+  state.currentWordIndex = 0;
+  state.quizSession = {};
+  state.masteredWords = new Set();
+  state.wordQueue = state.wordQueue.filter(w => !isMastered(w));
+  if (state.wordQueue.length === 0) {
+    state.wordQueue = buildAllWordsQueue();
+  }
+  showPracticeArea('全书随机');
+}
+
+function showPracticeArea(lesson) {
+  document.getElementById('lesson-selection').style.display = 'none';
+  document.getElementById('practice-area').style.display = 'block';
+  document.getElementById('current-lesson-name').textContent = lesson + ' · 错词优先';
+  document.getElementById('mode-label').textContent = state.mode === 'all' ? '课次模式' : '全书随机';
+  startWordDisplay();
+}
+
+function backToLessons() {
+  document.getElementById('lesson-selection').style.display = 'block';
+  document.getElementById('practice-area').style.display = 'none';
+  renderLessons();
+}
+
+function toggleMode() {
+  state.mode = state.mode === 'lesson' ? 'all' : 'lesson';
+  document.getElementById('mode-label').textContent = state.mode === 'all' ? '课次模式' : '全书随机';
+  restartCurrent();
+}
+
+function restartCurrent() {
+  if (state.currentLesson === '全书随机') {
+    startAllMode();
+  } else {
+    startLesson(state.currentLesson);
+  }
+}
+
+// ============================================================
+// 逐词听写逻辑
+// ============================================================
+function startWordDisplay() {
+  const progress = state.currentWordIndex + 1;
+  const total = state.wordQueue.length;
+  document.getElementById('word-progress').textContent = `${progress}/${total}`;
+  document.getElementById('progress-fill').style.width = (progress / total * 100) + '%';
+
+  if (progress > total) {
+    showCompletion();
+    return;
+  }
+
+  // Priority: wrong words first
+  let word = state.wordQueue[state.currentWordIndex];
+  state.currentWord = word;
+  document.getElementById('target-word').textContent = word;
+
+  // Check if mastered - skip if mastered
+  if (isMastered(word) && state.mode === 'lesson') {
+    document.getElementById('feedback-area').innerHTML = `<div class="feedback-msg correct"><i class="fas fa-check-circle"></i> 已掌握，跳过</div>`;
+    document.getElementById('next-btn').style.display = 'inline-flex';
+    return;
+  }
+
+  // Render HanziWriter
+  renderHanziWriter(word);
+  document.getElementById('feedback-area').innerHTML = '';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('sound-btn').disabled = false;
+}
+
+function showCompletion() {
+  const total = state.wordQueue.length;
+  const quizSession = state.quizSession;
+  let correctTotal = 0, totalWords = 0;
+  Object.values(quizSession).forEach(s => { correctTotal += s.correctCount; totalWords += s.totalCount; });
+  const accuracy = totalWords > 0 ? Math.round(correctTotal / totalWords * 100) : 0;
+
+  document.getElementById('writing-area').innerHTML = `
+    <div class="bounce" style="font-size:4rem;margin-bottom:16px">🎉</div>
+    <h2 style="color:var(--primary);margin-bottom:8px">听写完成！</h2>
+    <div class="stats-row" style="margin:16px 0">
+      <div><div class="stat-num">${total}</div><div class="stat-label">总词数</div></div>
+      <div><div class="stat-num accuracy-${accuracy >= 80 ? 'high' : 'low'}">${accuracy}%</div><div class="stat-label">正确率</div></div>
+    </div>
+    <button class="btn btn-primary btn-lg" onclick="backToLessons()"><i class="fas fa-home"></i> 返回首页</button>
+    <button class="btn btn-outline btn-lg" onclick="saveAndRestart()" style="margin-top:8px"><i class="fas fa-redo"></i> 再来一次</button>
+  `;
+  saveRecord(accuracy);
+}
+
+function saveRecord(accuracy) {
+  const total = state.wordQueue.length;
+  let correctCount = 0, wrongWords = [];
+  Object.entries(state.quizSession).forEach(([w, s]) => {
+    if (s.correctCount >= 2) correctCount += s.correctCount;
+    else wrongWords.push(w);
+  });
+  // Calculate more accurately
+  let correctTotal = 0, totalCount = 0;
+  Object.values(state.quizSession).forEach(s => { correctTotal += s.correctCount; totalCount += s.totalCount; });
+  const accuracy2 = totalCount > 0 ? Math.round(correctTotal / totalCount * 100) : 0;
+
+  state.records.unshift({
+    date: new Date().toISOString().split('T')[0],
+    lesson: state.currentLesson,
+    totalWords: total,
+    correct: accuracy2 >= 100 ? total : Math.round(total * accuracy2 / 100),
+    wrong: total - Math.round(total * accuracy2 / 100),
+    accuracy: accuracy2,
+    wrongWords: wrongWords.slice(0, 10)
+  });
+  // Keep last 50 records
+  if (state.records.length > 50) state.records = state.records.slice(0, 50);
+  saveState();
+}
+
+function saveAndRestart() {
+  backToLessons();
+  if (state.currentLesson === '全书随机') startAllMode();
+  else startLesson(state.currentLesson);
+}
+
+// ============================================================
+// HanziWriter
+// ============================================================
+let currentWriter = null;
+let writerReady = false;
+
+function renderHanziWriter(char) {
+  const container = document.getElementById('hanzi-container');
+  container.innerHTML = '';
+  writerReady = false;
+
+  try {
+    currentWriter = HanziWriter.create('hanzi-container', char, {
+      width: 280,
+      height: 280,
+      padding: 10,
+      showOutline: true,
+      showCharacter: true,
+      strokeColor: '#555',
+      outlineColor: '#ddd',
+      drawingColor: '#333',
+      drawingWidth: 5,
+      renderer: 'svg'
+    });
+
+    // Show outline first
+    currentWriter.showOutline().then(() => { writerReady = true; });
+
+    // Start quiz after a short delay
+    setTimeout(() => {
+      startQuizForWord(char);
+    }, 800);
+
+  } catch(e) {
+    container.innerHTML = `<div style="padding:40px;color:var(--muted)">加载中...<br>${char}</div>`;
+    setTimeout(() => renderHanziWriter(char), 2000);
+  }
+}
+
+function startQuizForWord(char) {
+  if (!currentWriter) return;
+  currentWriter.quiz({
+    leniency: 1.2,
+    showHintAfterMisses: 2,
+    acceptBackwardsStrokes: false,
+    highlightOnComplete: true,
+    highlightCompleteColor: '#4ECDC4',
+    onCorrectStroke(data) {
+      playSound('correct');
+      document.getElementById('feedback-area').innerHTML = `<div class="feedback-msg correct bounce"><i class="fas fa-check"></i> 笔画正确！</div>`;
+    },
+    onMistake(data) {
+      playSound('wrong');
+      document.getElementById('feedback-area').innerHTML = `<div class="feedback-msg wrong shake"><i class="fas fa-times"></i> 笔顺有误，请按正确顺序书写</div>`;
+      document.getElementById('writing-area').classList.add('shake');
+      setTimeout(() => document.getElementById('writing-area').classList.remove('shake'), 400);
+    },
+    onComplete(data) {
+      const session = state.quizSession[char] || { correctCount: 0, totalCount: 0 };
+      session.totalCount++;
+      if (data.totalMistakes === 0) {
+        session.correctCount++;
+        playSound('success');
+        document.getElementById('feedback-area').innerHTML = `<div class="feedback-msg correct bounce" style="font-size:1.2rem"><i class="fas fa-star"></i> 完全正确！</div>`;
+        // Check mastery
+        if (session.correctCount >= 2) {
+          state.masteredWords.add(char);
+          delete state.wrongBank[char];
+          document.getElementById('feedback-area').innerHTML += `<span class="mastered-badge">已掌握</span>`;
+        }
+      } else {
+        session.correctCount = 0; // Reset streak on mistake
+        // Add/update wrong bank
+        if (!state.wrongBank[char]) state.wrongBank[char] = { wrongCount: 0, correctStreak: 0, lastWrongDate: '' };
+        state.wrongBank[char].wrongCount++;
+        state.wrongBank[char].lastWrongDate = new Date().toISOString().split('T')[0];
+      }
+      state.quizSession[char] = session;
+      saveWrongBank();
+      document.getElementById('next-btn').style.display = 'inline-flex';
+      document.getElementById('sound-btn').disabled = true;
+    }
+  });
+}
+
+// ============================================================
+// TTS 语音朗读
+// ============================================================
+const WORKER_URL = '__WORKER_URL__'; // Will be replaced during deployment
+
+async function speakCurrentWord() {
+  const word = state.currentWord;
+  if (!word) return;
+  const btn = document.getElementById('sound-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+  try {
+    // Try Web Speech API first
+    if ('speechSynthesis' in window && window.speechSynthesis.getVoices().length > 0) {
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.85;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const cnVoice = voices.find(v => v.lang.includes('zh')) || voices[0];
+      if (cnVoice) utterance.voice = cnVoice;
+      utterance.onend = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; };
+      synth.speak(utterance);
+    } else {
+      // Fallback to Cloudflare Worker
+      await fetchTTS(word);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    }
+  } catch(e) {
+    // Fallback to Cloudflare Worker
+    try { await fetchTTS(word); } catch(e2) { console.error(e2); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+  }
+}
+
+async function fetchTTS(text) {
+  try {
+    const workerUrl = WORKER_URL !== '__WORKER_URL__' ? WORKER_URL : '';
+    if (!workerUrl) throw new Error('Worker URL not configured');
+    const resp = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!resp.ok) throw new Error('TTS failed');
+    const data = await resp.json();
+    if (data.audioUrl) {
+      const audio = new Audio(data.audioUrl);
+      await audio.play();
+    }
+  } catch(e) {
+    // Last resort: use Web Speech with slight delay
+    await new Promise(r => setTimeout(r, 500));
+    if ('speechSynthesis' in window) {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN'; u.rate = 0.85;
+      synth.speak(u);
+    }
+  }
+}
+
+// ============================================================
+// 下一词
+// ============================================================
+function nextWord() {
+  state.currentWordIndex++;
+  if (state.currentWordIndex >= state.wordQueue.length) {
+    showCompletion();
+    return;
+  }
+  startWordDisplay();
+}
+
+// ============================================================
+// 音效系统 (Web Audio API)
+// ============================================================
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const now = ctx.currentTime;
+
+    if (type === 'correct') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523, now);
+      osc.frequency.linearRampToValueAtTime(659, now + 0.1);
+      osc.frequency.linearRampToValueAtTime(784, now + 0.2);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.start(now); osc.stop(now + 0.4);
+    } else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.linearRampToValueAtTime(150, now + 0.3);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.start(now); osc.stop(now + 0.4);
+    } else if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523, now);
+      setTimeout(() => { const o2 = ctx.createOscillator(); const g2 = ctx.createGain(); o2.connect(g2); g2.connect(ctx.destination); o2.type='sine'; o2.frequency.setValueAtTime(659, now+0.15); g2.gain.setValueAtTime(0.3, now+0.15); g2.gain.exponentialRampToValueAtTime(0.001, now+0.55); o2.start(now+0.15); o2.stop(now+0.55); }, 150);
+      osc.frequency.linearRampToValueAtTime(784, now + 0.15);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc.start(now); osc.stop(now + 0.6);
+    }
+  } catch(e) {}
+}
+
+// ============================================================
+// 错词本页面
+// ============================================================
+function updateWrongCount() {
+  const count = getWrongBankList().length;
+  const el = document.getElementById('wrong-count');
+  if (count > 0) { el.style.display = 'inline'; el.textContent = count; }
+  else el.style.display = 'none';
+}
+
+function renderWrongBank() {
+  const container = document.getElementById('wrongbank-content');
+  const wrong = getWrongBankList();
+  if (wrong.length === 0) {
+    container.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle"></i><p>暂无错词，继续保持！</p></div>`;
+    return;
+  }
+  let html = '<div class="lesson-grid">';
+  wrong.forEach(([word, data]) => {
+    const status = isMastered(word) ? '已掌握' : `错误${data.wrongCount}次`;
+    html += `<div class="lesson-card" style="border-color:var(--error);background:#FFF5F5"><div class="lesson-name" style="color:var(--error)">${word} <span style="font-size:.7rem;color:var(--muted)">${status}</span></div><button class="btn btn-sm btn-outline" onclick="practiceWord('${word}')" style="margin-top:8px"><i class="fas fa-pen"></i> 练习</button></div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function practiceWord(word) {
+  // Add to a temporary queue and start practice
+  state.currentLesson = '错词练习';
+  state.wordQueue = [word];
+  state.currentWordIndex = 0;
+  state.quizSession = {};
+  document.getElementById('lesson-selection').style.display = 'none';
+  document.getElementById('practice-area').style.display = 'block';
+  document.getElementById('current-lesson-name').textContent = '错词练习';
+  document.getElementById('mode-label').textContent = '错词本';
+  startWordDisplay();
+}
+
+function clearWrongBank() {
+  state.wrongBank = {};
+  state.masteredWords = new Set();
+  state.quizSession = {};
+  saveState();
+  updateWrongCount();
+  renderWrongBank();
+}
+
+// ============================================================
+// 自定义词语
+// ============================================================
+function showAddWordsModal() {
+  const modal = document.getElementById('add-words-modal');
+  modal.style.display = 'block';
+  modal.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeAddWordsModal()">
+      <div class="modal">
+        <h3><i class="fas fa-plus-circle"></i> 添加词语</h3>
+        <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.9rem">词语组名</label><input type="text" id="modal-group-name" placeholder="例如：老师补充" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:var(--radius);margin-top:6px;outline:none"></div>
+        <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.9rem">词语（每行一个，或顿号分隔）</label><textarea id="modal-words-input" placeholder="山坡&#10;学校&#10;飘扬" style="min-height:100px"></textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-sm btn-outline" onclick="closeAddWordsModal()">取消</button>
+          <button class="btn btn-sm btn-primary" onclick="confirmAddWords()"><i class="fas fa-check"></i> 保存</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function closeAddWordsModal() {
+  document.getElementById('add-words-modal').style.display = 'none';
+}
+
+function confirmAddWords() {
+  const groupName = document.getElementById('modal-group-name').value.trim();
+  const input = document.getElementById('modal-words-input').value.trim();
+  if (!groupName || !input) { toast('请填写词语组和词语内容'); return; }
+  const words = input.split(/[\r\n、，;；]/).map(w => w.trim()).filter(w => w.length > 0);
+  if (!state.customWords[groupName]) state.customWords[groupName] = [];
+  state.customWords[groupName] = [...new Set([...state.customWords[groupName], ...words])];
+  saveState();
+  closeAddWordsModal();
+  toast(`已添加 ${words.length} 个词语到"${groupName}"`);
+}
+
+function renderCustomList() {
+  const container = document.getElementById('custom-list');
+  const entries = Object.entries(state.customWords);
+  if (entries.length === 0) {
+    container.innerHTML = `<div class="empty-state"><i class="fas fa-edit"></i><p>暂无自定义词语，点击上方"+"按钮添加</p></div>`;
+    return;
+  }
+  let html = '';
+  entries.forEach(([group, words]) => {
+    html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="color:var(--primary)">${group}</strong><button class="btn btn-sm btn-error" onclick="deleteCustomGroup('${group}')"><i class="fas fa-trash"></i></button></div><div class="word-list">${words.map(w => `<span class="word-tag">${w}</span>`).join('')}</div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function deleteCustomGroup(group) {
+  delete state.customWords[group];
+  saveState();
+  renderCustomList();
+}
+
+function saveCustomWords() {
+  const groupName = document.getElementById('custom-group-name').value.trim();
+  const input = document.getElementById('custom-words-input').value.trim();
+  if (!groupName || !input) { toast('请填写组名和词语'); return; }
+  const words = input.split(/[\r\n、，;；]/).map(w => w.trim()).filter(w => w.length > 0);
+  if (!state.customWords[groupName]) state.customWords[groupName] = [];
+  state.customWords[groupName] = [...new Set([...state.customWords[groupName], ...words])];
+  saveState();
+  document.getElementById('custom-words-input').value = '';
+  document.getElementById('custom-group-name').value = '';
+  toast(`已保存 ${words.length} 个词语`);
+  renderCustomList();
+}
+
+// ============================================================
+// 成绩页面
+// ============================================================
+function renderChart() {
+  const container = document.getElementById('chart-bars');
+  // Calculate weekly data
+  const weeks = {};
+  state.records.forEach(r => {
+    const d = new Date(r.date);
+    const weekKey = getWeekKey(d);
+    if (!weeks[weekKey]) weeks[weekKey] = { total: 0, correct: 0 };
+    weeks[weekKey].total += r.totalWords;
+    weeks[weekKey].correct += r.correct;
+  });
+  const weekList = Object.entries(weeks).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 8).reverse();
+  if (weekList.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">暂无数据</div>';
+    return;
+  }
+  let html = '';
+  weekList.forEach(([week, data]) => {
+    const acc = data.total > 0 ? Math.round(data.correct / data.total * 100) : 0;
+    const color = acc >= 80 ? 'var(--success)' : acc >= 60 ? 'var(--primary)' : 'var(--error)';
+    html += `<div class="chart-bar-row"><div class="chart-bar-label">${week}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${acc}%;background:${color}">${acc >= 40 ? acc + '%' : ''}</div></div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function getWeekKey(d) {
+  const start = new Date(d); start.setDate(d.getDate() - d.getDay());
+  return start.toISOString().split('T')[0];
+}
+
+function renderStats() {
+  const container = document.getElementById('stats-row');
+  if (state.records.length === 0) {
+    container.innerHTML = `<div><div class="stat-num">-</div><div class="stat-label">总听写次数</div></div><div><div class="stat-num">-</div><div class="stat-label">总体正确率</div></div><div><div class="stat-num">-</div><div class="stat-label">已掌握词</div></div>`;
+    return;
+  }
+  const totalCorrect = state.records.reduce((s, r) => s + r.correct, 0);
+  const totalWords = state.records.reduce((s, r) => s + r.totalWords, 0);
+  const overallAcc = totalWords > 0 ? Math.round(totalCorrect / totalWords * 100) : 0;
+  container.innerHTML = `
+    <div><div class="stat-num">${state.records.length}</div><div class="stat-label">听写次数</div></div>
+    <div><div class="stat-num accuracy-${overallAcc >= 80 ? 'high' : 'low'}">${overallAcc}%</div><div class="stat-label">总体正确率</div></div>
+    <div><div class="stat-num">${state.masteredWords.size}</div><div class="stat-label">已掌握词</div></div>
+  `;
+}
+
+function renderRecords() {
+  const container = document.getElementById('records-list');
+  if (state.records.length === 0) {
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i><p>暂无听写记录</p></div>';
+    return;
+  }
+  let html = '';
+  state.records.slice(0, 20).forEach(r => {
+    html += `<div class="record-item"><div><div class="record-date">${r.date}</div><div class="record-info">${r.lesson}</div></div><div class="record-accuracy accuracy-${r.accuracy >= 80 ? 'high' : 'low'}">${r.accuracy}%</div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ============================================================
+// Toast 提示
+// ============================================================
+function toast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ============================================================
+// Service Worker 注册
+// ============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// ============================================================
+// 键盘支持
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && state.currentWord) {
+    nextWord();
+  }
+});
+</script>
+</body>
+</html>

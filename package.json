@@ -1,0 +1,12 @@
+{
+  "name": "dictation",
+  "version": "1.0.0",
+  "description": "三年级汉字听写乐园 H5应用",
+  "scripts": {
+    "deploy": "wrangler pages deploy",
+    "deploy:worker": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
