@@ -583,32 +583,30 @@ function startQuizForWord(char) {
 const PAGES_URL = 'https://dictation-aax.pages.dev';
 const WORKER_URL = 'https://dictation-worker.jowge.workers.dev';
 
+// Wait for voices to load on Android
+let voicesLoaded = false;
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.getVoices(); // trigger load
+  window.speechSynthesis.onvoiceschanged = () => { voicesLoaded = true; };
+}
+
 async function speakCurrentWord() {
   const word = state.currentWord;
   if (!word) return;
   const btn = document.getElementById('sound-btn');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  btn.title = '正在朗读...';
 
-  try {
-    // Try Web Speech API first
-    if ('speechSynthesis' in window) {
-      synth.cancel();
-      const utterance = new SpeechSynthesisUtterance(word);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 0.85;
-      utterance.pitch = 1.0;
-      const voices = window.speechSynthesis.getVoices();
-      const cnVoice = voices.find(v => v.lang.includes('zh')) || voices[0];
-      if (cnVoice) utterance.voice = cnVoice;
-      utterance.onend = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; };
-      utterance.onerror = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; };
-      synth.speak(utterance);
-      return;
-    }
-  } catch(e) {}
+  // Strategy 1: Web Speech API (fast on phone)
+  const speechOk = await trySpeechSynthesis(word);
+  if (speechOk) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    return;
+  }
 
-  // Fallback to Cloudflare Worker
+  // Strategy 2: Cloudflare Worker
   try {
     await fetchTTS(word);
     btn.disabled = false;
@@ -620,9 +618,41 @@ async function speakCurrentWord() {
   }
 }
 
+function trySpeechSynthesis(text) {
+  return new Promise((resolve) => {
+    if (!('speechSynthesis' in window)) { resolve(false); return; }
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.85;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    // Wait for voices
+    const voices = window.speechSynthesis.getVoices();
+    const cnVoice = voices.find(v => v.lang.includes('zh'));
+    if (cnVoice) utterance.voice = cnVoice;
+
+    let settled = false;
+    utterance.onstart = () => { if (!settled) { settled = true; resolve(true); } };
+    utterance.onend = () => { if (!settled) { settled = true; resolve(true); } };
+    utterance.onerror = () => { if (!settled) { settled = true; resolve(false); } };
+
+    // Timeout after 3 seconds
+    setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        synth.cancel();
+        resolve(false);
+      }
+    }, 3000);
+
+    try { synth.speak(utterance); } catch(e) { resolve(false); }
+  });
+}
+
 async function fetchTTS(text) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const resp = await fetch(WORKER_URL, {
       method: 'POST',
@@ -635,7 +665,7 @@ async function fetchTTS(text) {
     const data = await resp.json();
     if (data.audioUrl) {
       const audio = new Audio(data.audioUrl);
-      audio.play().catch(() => {});
+      await audio.play().catch(() => {});
     }
   } catch(e) {
     clearTimeout(timeout);
