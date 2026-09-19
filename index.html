@@ -609,9 +609,7 @@ async function speakCurrentWord() {
 
 async function fetchTTS(text) {
   try {
-    const workerUrl = WORKER_URL !== '__WORKER_URL__' ? WORKER_URL : '';
-    if (!workerUrl) throw new Error('Worker URL not configured');
-    const resp = await fetch(workerUrl, {
+    const resp = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
