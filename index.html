@@ -578,16 +578,15 @@ function startQuizForWord(char) {
 }
 
 // ============================================================
-// TTS 语音朗读
+// TTS 语音朗读 - 本地音频文件
 // ============================================================
-const PAGES_URL = 'https://dictation-aax.pages.dev';
-const WORKER_URL = 'https://dictation-worker.jowge.workers.dev';
+const AUDIO_BASE = '/assets/audio';
+let audioCtx = null;
 
-// Wait for voices to load on Android
-let voicesLoaded = false;
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.getVoices(); // trigger load
-  window.speechSynthesis.onvoiceschanged = () => { voicesLoaded = true; };
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
 }
 
 async function speakCurrentWord() {
@@ -598,79 +597,57 @@ async function speakCurrentWord() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
   btn.title = '正在朗读...';
 
-  // Strategy 1: Web Speech API (fast on phone)
-  const speechOk = await trySpeechSynthesis(word);
-  if (speechOk) {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-    return;
-  }
-
-  // Strategy 2: Cloudflare Worker
   try {
-    await fetchTTS(word);
+    const audioUrl = `${AUDIO_BASE}/${encodeURIComponent(word)}.mp3`;
+    const audio = new Audio(audioUrl);
+    audio.preload = 'auto';
+
+    // Wait for audio to load
+    await new Promise((resolve, reject) => {
+      audio.oncanplaythrough = resolve;
+      audio.onerror = () => reject(new Error('Audio load failed'));
+      // Timeout after 5 seconds
+      setTimeout(() => reject(new Error('Audio timeout')), 5000);
+    });
+
+    await audio.play();
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-  } catch(e2) {
+    btn.title = '';
+  } catch(e) {
+    // Fallback: Web Speech API
+    try {
+      const speechOk = await trySpeechSynthesis(word);
+      if (speechOk) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; return; }
+    } catch(e2) {}
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-    btn.title = '语音暂时不可用，请稍后重试';
+    btn.title = '语音文件加载失败，请检查网络';
   }
 }
 
 function trySpeechSynthesis(text) {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) { resolve(false); return; }
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'zh-CN';
-    utterance.rate = 0.85;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    // Wait for voices
-    const voices = window.speechSynthesis.getVoices();
-    const cnVoice = voices.find(v => v.lang.includes('zh'));
-    if (cnVoice) utterance.voice = cnVoice;
+    try {
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.85;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const cnVoice = voices.find(v => v.lang.includes('zh'));
+      if (cnVoice) utterance.voice = cnVoice;
 
-    let settled = false;
-    utterance.onstart = () => { if (!settled) { settled = true; resolve(true); } };
-    utterance.onend = () => { if (!settled) { settled = true; resolve(true); } };
-    utterance.onerror = () => { if (!settled) { settled = true; resolve(false); } };
-
-    // Timeout after 3 seconds
-    setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        synth.cancel();
-        resolve(false);
-      }
-    }, 3000);
-
-    try { synth.speak(utterance); } catch(e) { resolve(false); }
+      let settled = false;
+      utterance.onstart = () => { if (!settled) { settled = true; resolve(true); } };
+      utterance.onend = () => { if (!settled) { settled = true; resolve(true); } };
+      utterance.onerror = () => { if (!settled) { settled = true; resolve(false); } };
+      setTimeout(() => { if (!settled) { settled = true; synth.cancel(); resolve(false); } }, 3000);
+      synth.speak(utterance);
+    } catch(e) { resolve(false); }
   });
-}
-
-async function fetchTTS(text) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  try {
-    const resp = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    if (!resp.ok) throw new Error('TTS failed');
-    const data = await resp.json();
-    if (data.audioUrl) {
-      const audio = new Audio(data.audioUrl);
-      await audio.play().catch(() => {});
-    }
-  } catch(e) {
-    clearTimeout(timeout);
-    throw e;
-  }
 }
 
 // ============================================================
