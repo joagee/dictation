@@ -1,7 +1,7 @@
 name = "dictation-worker"
 main = "worker.js"
 compatibility_date = "2024-01-01"
-account_id = "99eeceff1d472b6d47bf6a5424566d82"
+account_id = "9333c5987bace0a81c955dbf421a0d7b"
 
 [vars]
 BAIDU_API_KEY = "b70dYzEyj2rboam3CdV0OwbW"
