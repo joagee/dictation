@@ -1,3 +1,7 @@
+// Token cache for faster subsequent calls
+let cachedToken = null;
+let tokenExpiry = 0;
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -29,7 +33,16 @@ export default {
         });
       }
 
+      // Get token (cached)
       const token = await getAccessToken(env);
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Failed to get TTS token' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+
+      // Call Baidu TTS with timeout
       const params = new URLSearchParams({
         tex: encodeURIComponent(text),
         tok: token,
@@ -43,7 +56,13 @@ export default {
         aue: '3'
       });
 
-      const ttsResp = await fetch(`https://tsn.baidu.com/text2audio?${params}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const ttsResp = await fetch(`https://tsn.baidu.com/text2audio?${params}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
       if (!ttsResp.ok) {
         throw new Error('Baidu TTS failed');
       }
@@ -57,6 +76,7 @@ export default {
         });
       }
 
+      // Return as base64 data URL
       const arrayBuffer = await ttsResp.arrayBuffer();
       const base64Audio = arrayBufferToBase64(arrayBuffer);
 
@@ -68,7 +88,7 @@ export default {
         }
       });
     } catch(e) {
-      return new Response(JSON.stringify({ error: e.message }), {
+      return new Response(JSON.stringify({ error: e.message || 'TTS timeout' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
@@ -77,15 +97,28 @@ export default {
 };
 
 async function getAccessToken(env) {
-  const tokenUrl = 'https://aip.baidubce.com/oauth/2.0/token';
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: env.BAIDU_API_KEY,
-    client_secret: env.BAIDU_SECRET_KEY
-  });
-  const resp = await fetch(`${tokenUrl}?${params}`);
-  const data = await resp.json();
-  return data.access_token;
+  const now = Date.now();
+  if (cachedToken && now < tokenExpiry - 60000) {
+    return cachedToken;
+  }
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const tokenUrl = 'https://aip.baidubce.com/oauth/2.0/token';
+    const params = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: env.BAIDU_API_KEY,
+      client_secret: env.BAIDU_SECRET_KEY
+    });
+    const resp = await fetch(`${tokenUrl}?${params}`, { signal: controller.signal });
+    clearTimeout(timeout);
+    const data = await resp.json();
+    cachedToken = data.access_token;
+    tokenExpiry = now + (data.expires_in || 2592000) * 1000;
+    return cachedToken;
+  } catch(e) {
+    return null;
+  }
 }
 
 function arrayBufferToBase64(buffer) {

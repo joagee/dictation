@@ -414,7 +414,10 @@ function startWordDisplay() {
   // Priority: wrong words first
   let word = state.wordQueue[state.currentWordIndex];
   state.currentWord = word;
-  document.getElementById('target-word').textContent = word;
+  document.getElementById('target-word').textContent = '？';
+  document.getElementById('target-word').style.color = 'var(--muted)';
+  document.getElementById('target-word').style.fontSize = '3rem';
+  document.getElementById('target-word').style.letterSpacing = '8px';
 
   // Check if mastered - skip if mastered
   if (isMastered(word) && state.mode === 'lesson') {
@@ -428,6 +431,7 @@ function startWordDisplay() {
   document.getElementById('feedback-area').innerHTML = '';
   document.getElementById('next-btn').style.display = 'none';
   document.getElementById('sound-btn').disabled = false;
+  document.getElementById('sound-btn').innerHTML = '<i class="fas fa-volume-up"></i>';
 }
 
 function showCompletion() {
@@ -545,6 +549,12 @@ function startQuizForWord(char) {
       if (data.totalMistakes === 0) {
         session.correctCount++;
         playSound('success');
+        // Reveal the word
+        const wordEl = document.getElementById('target-word');
+        wordEl.textContent = char;
+        wordEl.style.color = 'var(--text)';
+        wordEl.style.fontSize = '2rem';
+        wordEl.style.letterSpacing = '4px';
         document.getElementById('feedback-area').innerHTML = `<div class="feedback-msg correct bounce" style="font-size:1.2rem"><i class="fas fa-star"></i> 完全正确！</div>`;
         // Check mastery
         if (session.correctCount >= 2) {
@@ -582,7 +592,7 @@ async function speakCurrentWord() {
 
   try {
     // Try Web Speech API first
-    if ('speechSynthesis' in window && window.speechSynthesis.getVoices().length > 0) {
+    if ('speechSynthesis' in window) {
       synth.cancel();
       const utterance = new SpeechSynthesisUtterance(word);
       utterance.lang = 'zh-CN';
@@ -592,43 +602,44 @@ async function speakCurrentWord() {
       const cnVoice = voices.find(v => v.lang.includes('zh')) || voices[0];
       if (cnVoice) utterance.voice = cnVoice;
       utterance.onend = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; };
+      utterance.onerror = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; };
       synth.speak(utterance);
-    } else {
-      // Fallback to Cloudflare Worker
-      await fetchTTS(word);
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+      return;
     }
-  } catch(e) {
-    // Fallback to Cloudflare Worker
-    try { await fetchTTS(word); } catch(e2) { console.error(e2); }
+  } catch(e) {}
+
+  // Fallback to Cloudflare Worker
+  try {
+    await fetchTTS(word);
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+  } catch(e2) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    btn.title = '语音暂时不可用，请稍后重试';
   }
 }
 
 async function fetchTTS(text) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const resp = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text }),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     if (!resp.ok) throw new Error('TTS failed');
     const data = await resp.json();
     if (data.audioUrl) {
       const audio = new Audio(data.audioUrl);
-      await audio.play();
+      audio.play().catch(() => {});
     }
   } catch(e) {
-    // Last resort: use Web Speech with slight delay
-    await new Promise(r => setTimeout(r, 500));
-    if ('speechSynthesis' in window) {
-      synth.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-CN'; u.rate = 0.85;
-      synth.speak(u);
-    }
+    clearTimeout(timeout);
+    throw e;
   }
 }
 
