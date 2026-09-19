@@ -1,17 +1,8 @@
-name = "dictation"
+name = "dictation-worker"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+account_id = "99eeceff1d472b6d47bf6a5424566d82"
 
 [vars]
 BAIDU_API_KEY = "b70dYzEyj2rboam3CdV0OwbW"
 BAIDU_SECRET_KEY = "HmVn05u5N7waKqUbzRsrnYyV96XULpgS"
-
-[[routes]]
-pattern = "your-domain.com/api/tts/*"
-zone_id = "your-zone-id"
-
-[triggers]
-crons = []
-
-[build]
-command = ""
