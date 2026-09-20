@@ -583,9 +583,11 @@ function startQuizForWord(char) {
 }
 
 // ============================================================
-// TTS 语音朗读 - speechSynthesis
+// TTS 语音朗读 - Cloudflare Worker (Baidu TTS)
 // ============================================================
-function speakCurrentWord() {
+const WORKER_URL = 'https://dictation-worker.jowge.workers.dev';
+
+async function speakCurrentWord() {
   const word = state.currentWord;
   if (!word) return;
   const btn = document.getElementById('sound-btn');
@@ -593,31 +595,34 @@ function speakCurrentWord() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
   btn.title = '正在朗读...';
 
-  if (!('speechSynthesis' in window)) {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-    btn.title = '浏览器不支持语音';
-    return;
-  }
-
   try {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(word);
-    u.lang = 'zh-CN';
-    u.rate = 0.85;
-    const voices = window.speechSynthesis.getVoices();
-    const cnVoice = voices.find(v => v.lang.includes('zh'));
-    if (cnVoice) u.voice = cnVoice;
-
-    let done = false;
-    u.onstart = () => { if (!done) { done = true; btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } };
-    u.onend = () => { if (!done) { done = true; btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } };
-    u.onerror = () => { if (!done) { done = true; btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } };
-    setTimeout(() => { if (!done) { done = true; window.speechSynthesis.cancel(); btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } }, 4000);
-    window.speechSynthesis.speak(u);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    const resp = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: word }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!resp.ok) throw new Error('TTS failed');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    // Play base64 audio via AudioContext
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const binary = atob(data.audioUrl.split(',')[1]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const audioBuf = await audioCtx.decodeAudioData(bytes.buffer);
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuf;
+    source.connect(audioCtx.destination);
+    source.start();
+    source.onended = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; };
   } catch(e) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    btn.title = '语音播放失败，请检查网络';
   }
 }
 
