@@ -578,18 +578,9 @@ function startQuizForWord(char) {
 }
 
 // ============================================================
-// TTS 语音朗读 - 本地音频文件
+// TTS 语音朗读 - speechSynthesis
 // ============================================================
-const AUDIO_BASE = '/assets/audio';
-let audioCtx = null;
-
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  return audioCtx;
-}
-
-async function speakCurrentWord() {
+function speakCurrentWord() {
   const word = state.currentWord;
   if (!word) return;
   const btn = document.getElementById('sound-btn');
@@ -597,57 +588,32 @@ async function speakCurrentWord() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
   btn.title = '正在朗读...';
 
-  try {
-    const audioUrl = `${AUDIO_BASE}/${encodeURIComponent(word)}.mp3`;
-    const audio = new Audio(audioUrl);
-    audio.preload = 'auto';
-
-    // Wait for audio to load
-    await new Promise((resolve, reject) => {
-      audio.oncanplaythrough = resolve;
-      audio.onerror = () => reject(new Error('Audio load failed'));
-      // Timeout after 5 seconds
-      setTimeout(() => reject(new Error('Audio timeout')), 5000);
-    });
-
-    await audio.play();
+  if (!('speechSynthesis' in window)) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-    btn.title = '';
-  } catch(e) {
-    // Fallback: Web Speech API
-    try {
-      const speechOk = await trySpeechSynthesis(word);
-      if (speechOk) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; return; }
-    } catch(e2) {}
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-    btn.title = '语音文件加载失败，请检查网络';
+    btn.title = '浏览器不支持语音';
+    return;
   }
-}
 
-function trySpeechSynthesis(text) {
-  return new Promise((resolve) => {
-    if (!('speechSynthesis' in window)) { resolve(false); return; }
-    try {
-      synth.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 0.85;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      const voices = window.speechSynthesis.getVoices();
-      const cnVoice = voices.find(v => v.lang.includes('zh'));
-      if (cnVoice) utterance.voice = cnVoice;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.lang = 'zh-CN';
+    u.rate = 0.85;
+    const voices = window.speechSynthesis.getVoices();
+    const cnVoice = voices.find(v => v.lang.includes('zh'));
+    if (cnVoice) u.voice = cnVoice;
 
-      let settled = false;
-      utterance.onstart = () => { if (!settled) { settled = true; resolve(true); } };
-      utterance.onend = () => { if (!settled) { settled = true; resolve(true); } };
-      utterance.onerror = () => { if (!settled) { settled = true; resolve(false); } };
-      setTimeout(() => { if (!settled) { settled = true; synth.cancel(); resolve(false); } }, 3000);
-      synth.speak(utterance);
-    } catch(e) { resolve(false); }
-  });
+    let done = false;
+    u.onstart = () => { if (!done) { done = true; btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } };
+    u.onend = () => { if (!done) { done = true; btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } };
+    u.onerror = () => { if (!done) { done = true; btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } };
+    setTimeout(() => { if (!done) { done = true; window.speechSynthesis.cancel(); btn.disabled = false; btn.innerHTML = '<i class="fas fa-volume-up"></i>'; } }, 4000);
+    window.speechSynthesis.speak(u);
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+  }
 }
 
 // ============================================================
